@@ -1,0 +1,21 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  id: 1
+  name: User 1
+  email: user1@mail.com
+  send_due_date_reminder: false
+  due_date_reminder_day_offset: 1
+  due_date_reminder_time: 2024-02-01 14:19:45
+  due_date_reminder_interval: 1
+  time_zone: CET
+
+two:
+  id: 2
+  name: User 2
+  email: user2@mail.com
+  send_due_date_reminder: false
+  due_date_reminder_day_offset: 1
+  due_date_reminder_time: 2024-02-01 14:19:45
+  due_date_reminder_interval: 1
+  time_zone: CET
