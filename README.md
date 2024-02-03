@@ -10,7 +10,9 @@ To read about how the scheduled reminders are implements go to: [Scheduled remin
 ### Requirements
 
 RVM
+
 Docker 
+
 Docker Compose
 
 ### How to run
