@@ -34,6 +34,9 @@ group :development, :test do
 
   gem 'rspec-rails', '~> 6.0.0'
   gem 'factory_bot_rails'
+
+  # A Ruby gem to load environment variables from `.env`.
+  gem 'dotenv-rails', groups: [:development, :test]
 end
 
 group :development do
