@@ -1,5 +1,12 @@
 module Reminders
   class Manager
+
+    # to extend with extra reminder types (push notifications for example)
+    # implement a new class that inheirits from Reminders::Base
+    # add the lowercase name of the class to the REMINDER_TYPES constant
+    # then when a user has this reminder type added to their configured_reminder_types field
+    # it will be used to send them reminders of this type when they are scheduled
+    
     REMINDER_TYPES = %w[email]
   
     def self.send_reminders

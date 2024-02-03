@@ -56,4 +56,5 @@ services:
 
 volumes:
   postgres_data: {}
+  postgres_data_test: {}
   app-storage: {}
