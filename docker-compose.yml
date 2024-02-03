@@ -1,0 +1,59 @@
+version: '3'
+services:
+  
+  db:
+    image: postgres:16-alpine
+    container_name: reminders-db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    command: 
+      "postgres -c 'max_connections=500'"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+
+  reminders-api:
+    container_name: reminders-api
+    build: .
+    command: "./bin/rails server"
+    environment:
+      - RAILS_ENV=${RAILS_ENV}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
+    volumes:
+      - app-storage:/rails/storage
+    depends_on:
+      - db
+    ports:
+      - "3000:3000"
+
+  # did not have the time to figure out how to get the scheduler up and running
+  # delayed_job:
+  #   container_name: reminders-jobs
+  #   build: .
+  #   command: "./bin/delayed_job start"
+  #   environment:
+  #     - RAILS_ENV=${RAILS_ENV}
+  #     - POSTGRES_HOST=${POSTGRES_HOST}
+  #     - POSTGRES_DB=${POSTGRES_DB}
+  #     - POSTGRES_USER=${POSTGRES_USER}
+  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+  #     - RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
+  #   volumes:
+  #     - app-storage:/rails/storage
+  #   depends_on:
+  #     - db
+  # cron_job:
+  #   container_name: reminders-cron
+  #   build: .
+  #   command: cron -f
+  #   depends_on:
+  #     - db
+
+volumes:
+  postgres_data: {}
+  app-storage: {}
