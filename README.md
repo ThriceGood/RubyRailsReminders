@@ -19,11 +19,11 @@ To run the migrations and seeds run: `bin/docker-initdb.sh`
 
 ### Verify in browser
 
-You should now be able to visit [localhost:3000/tickets](localhost:3000/tickets) and see something like this:
+You should now be able to visit [http://localhost:3000/tickets](http://localhost:3000/tickets) and see something like this:
 
 ![](images/tickets_index.png)
 
-And at [localhost:3000/users](localhost:3000/users) see something like this:
+And at [http://localhost:3000/users](http://localhost:3000/users) see something like this:
 
 ![](images/users_index.png)
 
