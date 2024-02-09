@@ -1,4 +1,3 @@
-
 ## Ruby Rails Reminders
 
 A reminders API built using Ruby 3, Rails 7 and PostgreSQL
@@ -6,6 +5,10 @@ A reminders API built using Ruby 3, Rails 7 and PostgreSQL
 The API provides access to users and tickets and sends a reminder email to an assigned user about a tickets upcoming due date
 
 To read about how the scheduled reminders are implements go to: [Scheduled reminders](#scheduled-reminders)
+
+### Note
+
+For a simpler approach checkout branch `simpler_approach`
 
 ### Requirements
 
