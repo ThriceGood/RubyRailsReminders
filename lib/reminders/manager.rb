@@ -11,14 +11,11 @@ module Reminders
     REMINDER_TYPES = %w[email]
 
     def self.create_reminders_for(ticket)
-      assignee = ticket.assignee
-      day_offset = assignee.due_date_reminder_day_offset.days
-      first_reminder_date = (ticket.due_date - day_offset).to_date
-
-      reminder_intervals = (first_reminder_date..ticket.due_date).step(assignee.due_date_reminder_interval)
       reminder_jobs = []
+      assignee = ticket.assignee
+      send_date = (ticket.due_date - assignee.due_date_reminder_day_offset.days).to_date
 
-      reminder_intervals.each do |send_date|
+      while send_date <= ticket.due_date
         Time.use_zone(assignee.time_zone) do 
           send_time = Time.zone.parse("#{send_date} #{assignee.due_date_reminder_time}")
           next if send_time < Time.current
@@ -27,6 +24,7 @@ module Reminders
             reminder_jobs << self.reminder_of_type(reminder_type).schedule(ticket, send_time)
           end
         end
+        send_date += assignee.due_date_reminder_interval.days
       end
 
       reminder_jobs
