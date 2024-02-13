@@ -80,4 +80,73 @@ RSpec.describe Ticket, type: :model do
       expect(ticket.status.name).to eq(TicketStatus::STATUSES[:draft])
     end
   end
+
+  describe 'ticket reminders' do
+
+    before(:each) do
+      user = create(
+        :user,
+        due_date_reminder_day_offset: 1,
+        due_date_reminder_interval: 1,
+        due_date_reminder_time: '09:00',
+        time_zone: 'Europe/Vienna'
+      )
+      
+      @ticket = Ticket.create(
+        title: 'A ticket', 
+        description: 'A ticket', 
+        due_date: Date.today + 2.days,
+        assignee: user
+      )
+
+      @first_reminder_time = Time.parse("#{Date.current + 1.day} #{user.due_date_reminder_time} #{user.time_zone}")
+      @second_reminder_time = @first_reminder_time + 1.day
+    end
+
+    it 'must create reminders for assignee on create' do
+      expect(@ticket.reminders.count).to eq(2)
+      expect(@ticket.reminders.first.run_at).to eq(@first_reminder_time)
+      expect(@ticket.reminders.second.run_at).to eq(@second_reminder_time)
+    end
+
+    it 'must destroy existing reminders and regenerate reminders when assignee changed' do
+    
+      user = create(
+        :user,
+        due_date_reminder_day_offset: 1,
+        due_date_reminder_interval: 1,
+        due_date_reminder_time: '11:00',
+        time_zone: 'Europe/Moscow'
+      )
+
+      @ticket.assignee = user
+      @ticket.save
+    
+      first_reminder_time = Time.parse("#{Date.current + 1.day} #{user.due_date_reminder_time} #{user.time_zone}")
+      second_reminder_time = first_reminder_time + 1.day
+
+      expect(@ticket.reminders.count).to eq(2)
+      expect(@ticket.reminders.first.run_at).to eq(@first_reminder_time)
+      expect(@ticket.reminders.second.run_at).to eq(@second_reminder_time)
+    end
+
+    it 'must not create reminders in the past' do
+
+      @ticket.update(due_date: Date.today - 1.day)
+
+      user = create(
+        :user,
+        due_date_reminder_day_offset: 1,
+        due_date_reminder_interval: 1,
+        due_date_reminder_time: '11:00',
+        time_zone: 'Europe/Moscow'
+      )
+
+      @ticket.assignee = user
+      @ticket.save
+
+      expect(@ticket.reminders).to be_empty
+    end
+
+  end
 end

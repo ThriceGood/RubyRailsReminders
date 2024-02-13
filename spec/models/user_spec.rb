@@ -53,87 +53,84 @@ RSpec.describe User, type: :model do
       expect(user.errors).not_to be_empty
       expect(user.errors.first.attribute).to eq(:configured_reminder_types)
     end
+
+    it 'must not create user if reminder settings are missing when send_due_date_reminder is true' do 
+    
+      user = User.create(name: 'Josh Smith', email: 'mail@mail.com', send_due_date_reminder: true)
+
+      errors = {:due_date_reminder_day_offset=>["can't be blank"],
+                :due_date_reminder_interval=>["can't be blank"],
+                :due_date_reminder_time=>["can't be blank"],
+                :time_zone=>["can't be blank"]}
+    
+      expect(user.errors).not_to be_empty
+      expect(user.errors.messages).to eq(errors)
+    end
   end
 
-  describe 'User.with_active_reminder_tickets scope' do
-
-    describe 'users with reminders enabled' do
-      
-      it 'must return not users if they have no active reminders' do
-
-        create(:ticket)
-
-        users = User.with_active_reminder_tickets
-
-        expect(users).to be_empty
-      end
+  describe "user's reminders" do
   
-      it 'must return users if they have active reminders' do
+    it 'must create reminders for user when setting send_due_date_reminder from false to true' do
 
-        ticket = create(:ticket, due_date: Date.tomorrow)
-        
-        user2 = create(:user, name: 'Joe Smith')
-        create(:ticket, assignee: user2, due_date: Date.current + 10.days)
-        
-        users = User.with_active_reminder_tickets
-  
-        expect(users).not_to be_empty
-        expect(users.count).to eq(1)
-        expect(users.first.id).to eq(ticket.assignee.id)
-      end
-  
-      it 'must not return users if the active ticket due_date has passed' do
-        
-        create(:ticket, due_date: Date.yesterday)
+      user = create(:user, send_due_date_reminder: false)
+      ticket = create(:ticket, assignee: user)
 
-        users = User.with_active_reminder_tickets
-  
-        expect(users).to be_empty
-      end
+      user.update(send_due_date_reminder: true)
 
-      it 'must return users with active reminder tickets and without tickets that are passed due_date or not active status' do
-        inactive_status = create_ticket_status('inactive')
-
-        # first user
-        ticket_active_1 = create(:ticket, due_date: Date.tomorrow) # reminder
-        ticket_inactive_1 = create(:ticket, due_date: Date.tomorrow, status: inactive_status)
-        ticket_far_future_1 = create(:ticket)
-        ticket_past_1 = create(:ticket, due_date: Date.yesterday)
-
-        # second uesr
-        ticket_active_2 = create(:ticket, due_date: Date.tomorrow) # reminder
-        ticket_inactive_2 = create(:ticket, due_date: Date.tomorrow, status: inactive_status)
-        ticket_far_future_2 = create(:ticket)
-        ticket_past_2 = create(:ticket, due_date: Date.yesterday)
-
-        users = User.with_active_reminder_tickets
-
-        expect(users).to_not be_empty
-        expect(users.count).to eq(2)
-
-        # first user
-        expect(users.first.id).to eq(ticket_active_1.assignee.id)
-        expect(users.first.tickets.count).to eq(1)
-        expect(users.first.tickets.first.id).to eq(ticket_active_1.id)
-
-        # second user
-        expect(users.second.id).to eq(ticket_active_2.assignee.id)
-        expect(users.second.tickets.count).to eq(1)
-        expect(users.second.tickets.first.id).to eq(ticket_active_2.id)
-      end
+      expect(ticket.reminders.count).to eq(2)
     end
 
-    describe 'users with reminders disabled' do
+    it 'must destroy reminders for user when setting send_due_date_reminder from true to false' do
 
-      it 'must not return users even if within reminder date range' do
-      
-        user = create(:user, send_due_date_reminder: false)
-        create(:ticket, assignee: user, due_date: Date.tomorrow)
+      ticket = create(:ticket)
+      ticket.regenerate_reminders
 
-        users = User.with_active_reminder_tickets
+      expect(ticket.reminders.count).to eq(2)
 
-        expect(users).to be_empty
-      end
+      ticket.assignee.update(send_due_date_reminder: false)
+
+      ticket.reload
+
+      expect(ticket.reminders).to be_empty
     end
+
+    it 'must regenerate reminders after changing reminder settings' do
+    
+      user = create(
+        :user,
+        due_date_reminder_day_offset: 1,
+        due_date_reminder_interval: 1,
+        due_date_reminder_time: '09:00',
+        time_zone: 'Europe/Vienna'
+      )
+      
+      ticket = Ticket.create(
+        title: 'A ticket', 
+        description: 'A ticket', 
+        due_date: Date.today + 2.days,
+        assignee: user
+      )
+
+      # reminder times based on original settings
+      first_reminder_time = Time.parse("#{Date.current + 1.day} #{user.due_date_reminder_time} #{user.time_zone}")
+      second_reminder_time = first_reminder_time + 1.day
+
+      expect(ticket.reminders.count).to eq(2)
+      expect(ticket.reminders.first.run_at).to eq(first_reminder_time)
+      expect(ticket.reminders.second.run_at).to eq(second_reminder_time)
+
+      user.update(due_date_reminder_time: '10:00')
+
+      # reminder times based on updated settings
+      new_first_reminder_time = Time.parse("#{Date.current + 1.day} #{user.due_date_reminder_time} #{user.time_zone}")
+      new_second_reminder_time = new_first_reminder_time + 1.day
+      
+      ticket.reload
+
+      expect(ticket.reminders.count).to eq(2)
+      expect(ticket.reminders.first.run_at).to eq(new_first_reminder_time)
+      expect(ticket.reminders.second.run_at).to eq(new_second_reminder_time)
+    end 
+  
   end
 end

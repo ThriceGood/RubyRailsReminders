@@ -4,7 +4,13 @@ A reminders API built using Ruby 3, Rails 7 and PostgreSQL
 
 The API provides access to users and tickets and sends a reminder email to an assigned user about a tickets upcoming due date
 
-To read about how the scheduled reminders are implements go to: [Scheduled reminders](#scheduled-reminders)
+### Contents
+
+* [Requirements](#requirements)
+* [How to run](#how-to-run)
+* [Run the tests](#run-the-tests)
+* [Using the API](#using-the-api)
+* [Scheduled reminders](#scheduled-reminders)
 
 ### Note
 
@@ -12,11 +18,9 @@ For a simpler approach checkout branch `simpler_approach`
 
 ### Requirements
 
-RVM
-
-Docker 
-
-Docker Compose
+* RVM
+* Docker 
+* Docker Compose
 
 ### How to run
 
@@ -31,8 +35,6 @@ Create the gemset: `rvm use ruby-3.3.0@ruby-rails-reminders --create`
 Install the dependecies: `bundle install`
 
 Initialize the database: `rails db:prepare`
-
-Update the crontab: `whenever --update-crontab`
 
 Start the Delayed Job server (maybe in another terminal window/tab): `rake jobs:work`
 
@@ -107,30 +109,23 @@ Afterwards if you HTTP `GET` from `/tickets` you should see something like:
 
 ![](images/new_ticket.png)
 
-
 ## Scheduled reminders
 
-The scheduled reminders work like this:
+When a ticket is created a `before_create` hook will generate and schedule reminders using `Delayed::Job`
 
-The Whenever gem sets up the crontab with a daily job the runs the reminders scheduler at 00:00:00
+There is a model called `Reminder` which is a proxy to the `delayed_jobs` table in the database
 
-The `Reminders::Manager` queries for users who have reminders ready to be scheduled using the `User` model scope:
+The `Ticket` model has a one to many relationship with the `Reminder` model
 
-`User.with_active_reminder_tickets`
+The `Reminders::Manager` class creates the reminders using the assignee's reminder settings and returns the job instances
 
-This scope will query for users and thier active remindable (a reminder can be sent for them) tickets
+The job instances related to the `delayed_jobs` table and the ids from these job instances are stored in `ticket.reminder_ids`
 
-A user and ticket will be returned if the user has activated their reminders, the ticket is in the active state, 
+Therefore the reminders (delayed jobs) can be fetched for a ticket using `ticket.reminders`
 
-the due date has not passed and the current date of the query is n number of days before the ticket due date
+When a ticket's assignee changes the old reminders (for the old assignee) will be deleted and new reminders will be generated
 
-(where n is the user defined due date reminder offset)
-
-When the users/tickets are returned a reminder will be scheduled at their defined reminder time in daily intervals (user defined) until the due date
-
-Example:
-
-The user is defined like this:
+The user and thier reminder settings look like this:
 
 ```
 {
@@ -148,79 +143,26 @@ The user is defined like this:
 }
 ```
 
-A user has the following ticket:
+When a user sets their `send_due_date_reminder` setting to `false` then all of thier currently scheduled reminders will be deleted
 
-```
-{
-    "id": 1,
-    "title": "Example Ticket",
-    "description": "This is an example ticket description.",
-    "assigned_user_id": 1,
-    "due_date": "2024-02-04",
-    "ticket_status_id": 3,
-}
-```
+When a user sets their `send_due_date_reminder` setting to `true` then they will have reminders generated for all their assigned tickets
 
-The current date is `2024-02-02` or 2 days before the ticket's due date
+When any other reminder setting (`due_date_*`, `time_zone`) is changed then the reminders will be regenerated based on these new settings 
 
-Because the user's `due_date_reminder_day_offset` is set to 2 days before due date the user should have reminders scheduled 
+### Example
 
-The reminders will be scheduled for every day until the due date as an interval of 1 means every day (2 would mean every second day)
+If the above user has one ticket with a `due_date` of `2024-06-10` and a `due_date_reminder_day_offset` of `2`
 
-The cron task will run at `2024-02-01 00:00:00` and then:
+And `due_date_reminder_time` is set to `09:00:00` and the `time_zone` set to `Europe/Vienna`
 
-`Reminders::Manager.send_reminders` is called
+Then the first reminder is expected on `2024-06-08 09:00:00 +0100`
 
-The `User.with_active_reminder_tickets` scope is used to return the above user with his remindable ticket eager loaded
+Because the user has a `due_date_reminder_interval` set to `1` a reminder is expected every day up and including the due date
 
-The reminders are scheduled for each ticket for each `configured_reminder_types` (currently just `email` is available)
+Therefore the expected reminder times will be:
 
-The reminders are scheduled using `DelayedJob` and are send at the users `due_date_reminder_time`
+* `2024-06-08 09:00:00 +0100` (2 days before)
+* `2024-06-09 09:00:00 +0100` (1 days before)
+* `2024-06-10 09:00:00 +0100` (on due date)
 
-### Testing
-
-Besides the rpec tests, in order to test locally and not have to wait for the scheduler to run you can test on the rails console
-
-I have added an environment check that sends the reminder mails instantly with `deliver_now` in development
-
-The database is already seeded with a user who has an active remindable ticket which can be scheduled today
-
-```
-rails c
-> Reminders::Manager.send_reminders
-```
-
-The reminders scheduler should run and you should see two (one for each day until due date) of the following emails in the console output:
-
-```
-UsersMailer#reminder_mail: processed outbound mail in 3.8ms
-Delivered mail 65bdf8bc46618_95b8c1c-32b@jonathan-laptop.mail (3.8ms)
-Date: Sat, 03 Feb 2024 09:26:36 +0100
-From: from@example.com
-To: josh@example.com
-Message-ID: <65bdf8bc46618_95b8c1c-32b@jonathan-laptop.mail>
-Subject: Reminder: Due date for "Example Ticket" is upcoming
-Mime-Version: 1.0
-Content-Type: text/html;
- charset=UTF-8
-Content-Transfer-Encoding: 7bit
-
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <style>
-      /* Email styles need to be inline */
-    </style>
-  </head>
-
-  <body>
-    <h1>Reminder: Due date for "Example Ticket" upcoming</h1>
-<h2>Due on: 2024-02-04</h2>
-<p>It's not going to finish itself!</p>
-  </body>
-</html>
-
-```
-
-View the tests at `./spec/lib/reminders/manager.rb` for more complex data setups
+View the RSpec tests to see testing of the above functionality
